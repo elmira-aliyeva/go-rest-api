@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	// NewConfig returns an instance of Config struct,
-	// with default configs: port - 8080, log level - debug, store - (no def val)
+	// with default configs: port - 8080, log level - debug (databaseURL, sessionKey are empty)
 	config := apiserver.NewConfig()
 
 	// take config from toml file and write values to config struct
@@ -29,12 +29,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// New returns an instance of APIServer struct with config set to given config,
-	// sets logrus logger as server logger, sets gorilla/mux router as server router
-	s := apiserver.New(config)
-
-	// Start configures logger, router and starts listening on the given port
-	if err := s.Start(); err != nil {
+	// Start checks the db, starts listening on the given port
+	if err := apiserver.Start(config); err != nil {
 		log.Fatal(err)
 	}
 }

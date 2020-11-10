@@ -1,82 +1,44 @@
 package apiserver
 
 import (
-	"io"
+	"database/sql"
 	"net/http"
 
-	"github.com/elmira-aliyeva/go-rest-api/internal/store"
-	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
+	"github.com/gorilla/sessions"
+
+	"github.com/elmira-aliyeva/go-rest-api/internal/store/sqlstore"
 )
 
-// APIServer ...
-type APIServer struct {
-	config *Config
-	logger *logrus.Logger
-	router *mux.Router
-	store  *store.Store
-}
-
-// New returns an instance of APIServer struct with config set to given config,
-// sets logrus logger as logger, sets gorilla/mux router as server router
-func New(config *Config) *APIServer {
-	return &APIServer{
-		config: config,
-		logger: logrus.New(),
-		router: mux.NewRouter(),
-	}
-}
-
-// Start configures logger, router, store and starts listening on the given port
-func (s *APIServer) Start() error {
-	if err := s.configureLogger(); err != nil {
-		return err
-	}
-
-	s.configureRouter()
-
-	// creates new Store instance with server's store config (dbURL), opens db, sets store db to this db, sets server store
-	if err := s.configureStore(); err != nil {
-		return err
-	}
-
-	s.logger.Info("starting api server")
-	return http.ListenAndServe(s.config.BindAddr, s.router)
-}
-
-func (s *APIServer) configureLogger() error {
-	level, err := logrus.ParseLevel(s.config.LogLevel)
+// Start checks the db, starts listening on the given port
+func Start(config *Config) error {
+	// opens db and checks the connection
+	db, err := newDB(config.DataBaseURL)
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
-	s.logger.SetLevel(level)
-	return nil
+	// returns Store instance with db set to given db
+	store := sqlstore.New(db)
+	sessionStore := sessions.NewCookieStore([]byte(config.SessionKey))
+
+	// returns server instance with gorilla/mux router, store set to given store,
+	// sessionStore set to the one given, configures the router
+	srv := newServer(store, sessionStore)
+
+	return http.ListenAndServe(config.BindAddr, srv)
 }
 
-func (s *APIServer) configureRouter() {
-	s.router.HandleFunc("/hello", s.handleHello())
-}
-
-func (s *APIServer) handleHello() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "hello")
-	}
-}
-
-// creates new Store instance with server's store config (dbURL), opens db, sets store db to this db, sets server's store
-func (s *APIServer) configureStore() error {
-
-	// Store - config (databaseURL), db, userRepository
-	// New returns Store instance with config set to given config
-	st := store.New(s.config.Store)
-
-	// Open opens database given in config, checks the conncetion to db, sets store db to opened db
-	if err := st.Open(); err != nil {
-		return err
+// opens db and checks the connection
+func newDB(databaseURL string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		return nil, err
 	}
 
-	// set server store to this store
-	s.store = st
-	return nil
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }

@@ -1,20 +1,18 @@
 package apiserver
 
-import "github.com/elmira-aliyeva/go-rest-api/internal/store"
-
 //Config ...
 type Config struct {
-	BindAddr string        `toml:"bind_addr"`
-	LogLevel string        `toml:"log_level"`
-	Store    *store.Config // DataBaseURL string `toml:"database_url"`
+	BindAddr    string `toml:"bind_addr"`
+	LogLevel    string `toml:"log_level"`
+	DataBaseURL string `toml:"database_url"`
+	SessionKey  string `toml:"session_key"`
 }
 
 // NewConfig returns an instance of Config struct,
-// with default configs: port - 8080, log level - debug, store - (no val)
+// with default configs: port - 8080, log level - debug (databaseURL, sessionKey are empty)
 func NewConfig() *Config {
 	return &Config{
 		BindAddr: ":8080",
 		LogLevel: "debug",
-		Store:    store.NewConfig(), // DataBaseURL string `toml:"database_url"`
 	}
 }
